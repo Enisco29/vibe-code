@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📌 Link Saver</title>
+    <style>
+      :root {
+        --bg: #0f0f0f;
+        --text: #e0e0e0;
+        --card: #1a1a1a;
+        --accent: #6c9eff;
+        --muted: #777;
+        --danger: #ff5555;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 1.9rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        font-weight: 500;
+      }
+
+      .add-form {
+        display: grid;
+        gap: 0.9rem;
+        background: var(--card);
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+      }
+
+      input,
+      button {
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        border: 1px solid #333;
+        font-size: 1rem;
+        background: #111;
+        color: var(--text);
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(108, 158, 255, 0.15);
+      }
+
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.13s;
+      }
+
+      button:hover {
+        background: #5a8aff;
+      }
+
+      button.delete {
+        background: var(--danger);
+        padding: 0.4rem 0.9rem;
+        font-size: 0.9rem;
+      }
+
+      button.delete:hover {
+        background: #e04444;
+      }
+
+      .controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      #search {
+        flex: 1;
+        min-width: 220px;
+      }
+
+      .tags-filter {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .tag {
+        background: #222;
+        padding: 0.35rem 0.8rem;
+        border-radius: 1rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.13s;
+        user-select: none;
+      }
+
+      .tag:hover {
+        background: #333;
+      }
+
+      .tag.active {
+        background: var(--accent);
+        color: white;
+      }
+
+      .empty-state {
+        text-align: center;
+        color: var(--muted);
+        padding: 4rem 1rem;
+        font-size: 1.1rem;
+      }
+
+      .link-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .link-card {
+        background: var(--card);
+        padding: 1.25rem;
+        border-radius: 10px;
+        border: 1px solid #222;
+        transition: border-color 0.15s;
+      }
+
+      .link-card:hover {
+        border-color: #444;
+      }
+
+      .link-title {
+        font-size: 1.15rem;
+        margin-bottom: 0.5rem;
+        color: var(--accent);
+        text-decoration: none;
+        display: block;
+      }
+
+      .link-title:hover {
+        text-decoration: underline;
+      }
+
+      .link-url {
+        color: #888;
+        font-size: 0.95rem;
+        word-break: break-all;
+        margin-bottom: 0.7rem;
+        display: block;
+      }
+
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        margin-top: 0.8rem;
+        color: #777;
+        font-size: 0.9rem;
+      }
+
+      .tags {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .tag-in-list {
+        background: #1e1e1e;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.82rem;
+        cursor: pointer;
+      }
+
+      .tag-in-list:hover {
+        background: #2a2a2a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📌 Link Saver</h1>
+
+      <form id="addForm" class="add-form">
+        <input
+          type="url"
+          id="url"
+          placeholder="https://example.com"
+          required
+          autofocus
+        />
+        <input type="text" id="title" placeholder="Title (optional)" />
+        <input type="text" id="tags" placeholder="tags, comma, separated" />
+        <button type="submit">Save Link</button>
+      </form>
+
+      <div class="controls">
+        <input type="search" id="search" placeholder="Search title or URL..." />
+      </div>
+
+      <div class="tags-filter" id="tagFilter"></div>
+
+      <div id="empty" class="empty-state" style="display: none">
+        No links saved yet ✦
+      </div>
+
+      <div class="link-list" id="linkList"></div>
+    </div>
+
+    <script>
+      // ────────────────────────────────────────────────
+      const STORAGE_KEY = "link-saver-v1";
+      let links = loadLinks();
+      let activeTag = null;
+
+      // ─── Helpers ─────────────────────────────────────
+      function loadLinks() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveLinks() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+      }
+
+      function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      }
+
+      function formatDate(iso) {
+        return new Date(iso).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+
+      function isValidUrl(string) {
+        try {
+          new URL(string);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      // ─── Render ──────────────────────────────────────
+      function renderLinks(filteredLinks = links) {
+        const container = document.getElementById("linkList");
+        const empty = document.getElementById("empty");
+        container.innerHTML = "";
+
+        if (filteredLinks.length === 0) {
+          empty.style.display = "block";
+          return;
+        }
+
+        empty.style.display = "none";
+
+        filteredLinks.forEach((link) => {
+          const card = document.createElement("div");
+          card.className = "link-card";
+          card.dataset.id = link.id;
+
+          card.innerHTML = `
+      <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="link-title">
+        ${link.title || "(untitled)"}
+      </a>
+      <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="link-url">
+        ${link.url}
+      </a>
+
+      <div class="meta">
+        <div class="tags">
+          ${link.tags.map((tag) => `<span class="tag-in-list" data-tag="${tag}">${tag}</span>`).join("")}
+        </div>
+        <div>
+          ${formatDate(link.createdAt)}
+          <button class="delete">×</button>
+        </div>
+      </div>
+    `;
+
+          card.querySelector(".delete").onclick = () => {
+            if (confirm("Remove this link?")) {
+              links = links.filter((l) => l.id !== link.id);
+              saveLinks();
+              renderAll();
+            }
+          };
+
+          card.querySelectorAll(".tag-in-list").forEach((el) => {
+            el.onclick = () => {
+              activeTag = el.dataset.tag;
+              renderAll();
+            };
+          });
+
+          container.appendChild(card);
+        });
+      }
+
+      function renderTagFilters() {
+        const container = document.getElementById("tagFilter");
+        container.innerHTML = '<span class="tag active" data-tag="">All</span>';
+
+        const allTags = [...new Set(links.flatMap((l) => l.tags))].sort();
+
+        allTags.forEach((tag) => {
+          const el = document.createElement("span");
+          el.className = "tag" + (activeTag === tag ? " active" : "");
+          el.textContent = tag;
+          el.dataset.tag = tag;
+          el.onclick = () => {
+            activeTag = activeTag === tag ? null : tag;
+            renderAll();
+          };
+          container.appendChild(el);
+        });
+      }
+
+      function renderAll() {
+        let filtered = links;
+
+        // tag filter
+        if (activeTag) {
+          filtered = filtered.filter((l) => l.tags.includes(activeTag));
+        }
+
+        // text search
+        const q = document.getElementById("search").value.toLowerCase().trim();
+        if (q) {
+          filtered = filtered.filter(
+            (l) =>
+              l.title?.toLowerCase().includes(q) ||
+              l.url.toLowerCase().includes(q),
+          );
+        }
+
+        // newest first
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        renderLinks(filtered);
+        renderTagFilters();
+      }
+
+      // ─── Form ────────────────────────────────────────
+      document.getElementById("addForm").onsubmit = async (e) => {
+        e.preventDefault();
+
+        let url = document.getElementById("url").value.trim();
+        let title = document.getElementById("title").value.trim();
+        const tagsInput = document.getElementById("tags").value.trim();
+
+        if (!url) return;
+
+        if (!isValidUrl(url)) {
+          if (!url.startsWith("http")) {
+            url = "https://" + url;
+          }
+          if (!isValidUrl(url)) {
+            alert("Please enter a valid URL");
+            return;
+          }
+        }
+
+        // auto-fetch title if empty
+        if (!title) {
+          try {
+            const res = await fetch(
+              `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            );
+            const text = await res.text();
+            const match = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+            if (match?.[1]) title = match[1].trim();
+          } catch {
+            // silent fail → keep empty title
+          }
+        }
+
+        const tags = tagsInput
+          ? tagsInput
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [];
+
+        links.unshift({
+          id: generateId(),
+          title: title || "",
+          url,
+          tags,
+          createdAt: new Date().toISOString(),
+        });
+
+        saveLinks();
+
+        // reset form
+        document.getElementById("addForm").reset();
+        document.getElementById("url").focus();
+
+        renderAll();
+      };
+
+      // Live search
+      document.getElementById("search").oninput = () => renderAll();
+
+      // Initial render
+      renderAll();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,215 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Shiba Flap</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: #70c5ce;
+        font-family: "Courier New", monospace;
+        font-size: 24px;
+        color: #000;
+        user-select: none;
+      }
+      canvas {
+        border: 2px solid #333;
+      }
+      #score {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 36px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 2px 2px 4px #000;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas" width="400" height="600"></canvas>
+    <div id="score">0</div>
+    <script>
+      const canvas = document.getElementById("canvas"),
+        ctx = canvas.getContext("2d"),
+        scoreEl = document.getElementById("score");
+      let gamePlaying = false,
+        gravity = 0.3,
+        speed = 2.5,
+        jump = -7,
+        size = [34, 24],
+        pipeWidth = 52,
+        pipeGap = 220,
+        cTenth = canvas.width / 10,
+        bestScore = 0,
+        flight,
+        flyHeight,
+        currentScore = 0,
+        pipes = [];
+      const pipeLoc = () => {
+        const minH = 50,
+          avail = canvas.height - pipeGap - minH * 2 - 80;
+        return Math.floor(Math.random() * avail + minH);
+      };
+      const setup = () => {
+        currentScore = 0;
+        flight = jump;
+        flyHeight = canvas.height / 2 - size[1] / 2;
+        pipes = Array(3)
+          .fill(0)
+          .map((_, i) => [canvas.width + i * (pipeGap + pipeWidth), pipeLoc()]);
+      };
+      const flap = () => {
+        if (!gamePlaying) {
+          setup();
+        }
+        flight = jump;
+        gamePlaying = true;
+      };
+      canvas.onclick = flap;
+      document.addEventListener("click", () => !gamePlaying && flap());
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+          e.preventDefault();
+          flap();
+        }
+      });
+      const drawShiba = (cx, cy) => {
+        ctx.save();
+        ctx.translate(cx + 17, cy + 12);
+        ctx.rotate(Math.max(-0.4, Math.min(0.4, flight * 0.06)));
+        ctx.fillStyle = "#F0B1C7";
+        ctx.fillRect(-12, -10, 6, 8);
+        ctx.fillRect(6, -10, 6, 8);
+        ctx.fillStyle = "#D89B5F";
+        ctx.fillRect(-10, -3, 20, 16);
+        ctx.fillRect(-14, 0, 8, 12);
+        ctx.fillRect(6, 0, 8, 12);
+        ctx.fillRect(-8, -8, 16, 6);
+        ctx.fillStyle = "#F4C49C";
+        ctx.fillRect(-15, -1, 5, 10);
+        ctx.fillRect(10, -1, 5, 10);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(-5, 2, 10, 8);
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(-10, -4, 3, 3);
+        ctx.fillRect(4, -4, 3, 3);
+        ctx.fillRect(-9, -3, 1, 1);
+        ctx.fillRect(5, -3, 1, 1);
+        ctx.fillRect(-1, 4, 3, 3);
+        ctx.fillStyle = "#F0B1C7";
+        ctx.fillRect(-2, 7, 4, 4);
+        ctx.fillStyle = "#D89B5F";
+        ctx.fillRect(12, 2, 5, 6);
+        ctx.fillStyle = "#F4C49C";
+        ctx.fillRect(-8, 12, 4, 4);
+        ctx.fillRect(4, 12, 4, 4);
+        ctx.restore();
+      };
+      const drawETH = (cx, cy, s = 25) => {
+        ctx.fillStyle = "#627EEA";
+        ctx.beginPath();
+        ctx.moveTo(cx + s / 2, cy);
+        ctx.lineTo(cx + s, cy + s / 4);
+        ctx.lineTo(cx + s, cy + (3 * s) / 4);
+        ctx.lineTo(cx + s / 2, cy + s);
+        ctx.lineTo(cx, cy + (3 * s) / 4);
+        ctx.lineTo(cx, cy + s / 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#5865F2";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx + s / 3, cy + s / 3);
+        ctx.lineTo(cx + (2 * s) / 3, cy + (2 * s) / 3);
+        ctx.moveTo(cx + s / 3, cy + (2 * s) / 3);
+        ctx.lineTo(cx + (2 * s) / 3, cy + s / 3);
+        ctx.stroke();
+      };
+      const render = () => {
+        //bg
+        let g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        g.addColorStop(0, "#A1E5F2");
+        g.addColorStop(1, "#70C5CE");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        //ground
+        ctx.fillStyle = "#DED895";
+        ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+        if (gamePlaying) {
+          pipes.forEach((pipe, i) => {
+            pipe[0] -= speed;
+            //top
+            ctx.fillStyle = "#3C3C3D";
+            ctx.fillRect(pipe[0], 0, pipeWidth, pipe[1]);
+            drawETH(pipe[0] + (pipeWidth - 25) / 2, pipe[1] - 30);
+            //bottom
+            let bY = pipe[1] + pipeGap;
+            ctx.fillRect(pipe[0], bY, pipeWidth, canvas.height - bY - 80);
+            drawETH(pipe[0] + (pipeWidth - 25) / 2, bY + 10);
+            //score
+            if (pipe[0] + pipeWidth < cTenth) {
+              currentScore++;
+              pipes = [
+                ...pipes.slice(1),
+                [pipes[pipes.length - 1][0] + pipeGap + pipeWidth, pipeLoc()],
+              ];
+            }
+            //collision
+            if (
+              pipe[0] <= cTenth + size[0] &&
+              pipe[0] + pipeWidth >= cTenth &&
+              (pipe[1] > flyHeight || bY < flyHeight + size[1])
+            ) {
+              gamePlaying = false;
+              bestScore = Math.max(bestScore, currentScore);
+              return;
+            }
+          });
+          flight += gravity;
+          flyHeight += flight;
+          if (flyHeight + size[1] >= canvas.height - 80) {
+            gamePlaying = false;
+            bestScore = Math.max(bestScore, currentScore);
+          }
+        } else {
+          flyHeight = canvas.height / 2 - size[1] / 2;
+        }
+        //shiba
+        drawShiba(cTenth, flyHeight);
+        //ui
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.font = "bold 48px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(currentScore, canvas.width / 2, 60);
+        if (!gamePlaying) {
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.fillRect(0, canvas.height / 2 - 100, canvas.width, 200);
+          ctx.fillStyle = "#FFF";
+          ctx.font = "bold 32px monospace";
+          ctx.fillText(
+            "Best: " + bestScore,
+            canvas.width / 2,
+            canvas.height / 2 - 30,
+          );
+          ctx.fillText(
+            "Click/Space to flap",
+            canvas.width / 2,
+            canvas.height / 2 + 40,
+          );
+        }
+        scoreEl.textContent = currentScore;
+        bestScore = Math.max(bestScore, currentScore);
+        requestAnimationFrame(render);
+      };
+      setup();
+      render();
+    </script>
+  </body>
+</html>
